@@ -175,37 +175,38 @@ export function removeItems(chatId: number, names: string[]): void {
 }
 
 /**
- * Mark items as checked in a chat's grocery list (case-insensitive matching)
+ * Toggle checked state of items in a chat's grocery list (case-insensitive matching)
+ * If an item is checked, it will be unchecked, and vice versa
  * @param chatId - The Telegram chat ID
- * @param names - Array of item names to check off
+ * @param names - Array of item names to toggle
  * @throws Error if database operation fails
  */
 export function checkItems(chatId: number, names: string[]): void {
   try {
-    const toCheckNormalized = names.map((name) => name.trim().toLowerCase());
+    const toToggleNormalized = names.map((name) => name.trim().toLowerCase());
     const items = getItems(chatId);
-    const updateStmt = db.prepare("UPDATE grocery_items SET checked = 1 WHERE id = ?");
+    const updateStmt = db.prepare("UPDATE grocery_items SET checked = ? WHERE id = ?");
 
-    console.log(`[DEBUG] checkItems called for chat ${chatId}`);
-    console.log(`[DEBUG] Items to check:`, toCheckNormalized);
+    console.log(`[DEBUG] checkItems (toggle) called for chat ${chatId}`);
+    console.log(`[DEBUG] Items to toggle:`, toToggleNormalized);
     console.log(`[DEBUG] Current items:`, items.map(i => ({ name: i.name, checked: i.checked })));
 
-    let checkedCount = 0;
+    let toggledCount = 0;
     for (const item of items) {
       const normalized = item.name.trim().toLowerCase();
-      if (toCheckNormalized.includes(normalized) && !item.checked) {
-        console.log(`[DEBUG] Checking item: ${item.name} (id: ${item.id})`);
-        const result = updateStmt.run(item.id);
+      if (toToggleNormalized.includes(normalized)) {
+        // Toggle: if checked, uncheck (0); if unchecked, check (1)
+        const newCheckedValue = item.checked ? 0 : 1;
+        console.log(`[DEBUG] Toggling item: ${item.name} (id: ${item.id}) from ${item.checked} to ${!!newCheckedValue}`);
+        const result = updateStmt.run(newCheckedValue, item.id);
         console.log(`[DEBUG] Update result:`, result);
-        checkedCount++;
-      } else if (toCheckNormalized.includes(normalized) && item.checked) {
-        console.log(`[DEBUG] Item ${item.name} is already checked`);
+        toggledCount++;
       }
     }
-    console.log(`[DEBUG] Checked ${checkedCount} items`);
+    console.log(`[DEBUG] Toggled ${toggledCount} items`);
   } catch (error) {
-    console.error(`Failed to check items for chat ${chatId}:`, error);
-    throw new Error(`Database error: Could not check grocery items`);
+    console.error(`Failed to toggle items for chat ${chatId}:`, error);
+    throw new Error(`Database error: Could not toggle grocery items`);
   }
 }
 

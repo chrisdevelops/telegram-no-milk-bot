@@ -17,7 +17,7 @@ export async function handleRemove(
   if (items.length === 0) {
     await ctx.reply(
       "❌ Please specify items to remove.\n\n" +
-      "Example: /grocery remove carrots, milk"
+      "Example: grocery remove carrots, milk"
     );
     return;
   }

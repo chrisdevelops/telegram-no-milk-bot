@@ -2,7 +2,7 @@
 import { Bot, GrammyError, HttpError } from "grammy";
 import dotenv from "dotenv";
 import { initDb, closeDb } from "./db";
-import { registerGroceryCommand } from "./commands/grocery";
+import { registerNaturalLanguageGrocery } from "./commands/grocery";
 import { BotContext } from "./lib/types";
 
 // Load environment variables
@@ -32,18 +32,21 @@ const bot = new Bot<BotContext>(token);
 bot.command("start", async (ctx) => {
   await ctx.reply(
     "🛒 Grocery List Bot\n\n" +
-    "Manage your grocery list with these commands:\n\n" +
-    "  /grocery — show current list\n" +
-    "  /grocery add carrots, milk\n" +
-    "  /grocery remove carrots\n" +
-    "  /grocery check carrots, milk\n" +
-    "  /grocery clear\n\n" +
-    "All list members can collaborate on the same list!"
+    "Just chat naturally! Use these patterns:\n\n" +
+    "  grocery show — display list\n" +
+    "  grocery add carrots, milk, bread\n" +
+    "  grocery remove carrots, milk\n" +
+    "  grocery check carrots, milk (toggles ✅/◻️)\n" +
+    "  grocery copy — get text to copy\n" +
+    "  grocery clear\n\n" +
+    "Shortcuts: + (add), - (remove), x (check)\n" +
+    "Tip: Separate items with commas\n" +
+    "All list members can collaborate!"
   );
 });
 
-// Register grocery command and all subcommands
-registerGroceryCommand(bot);
+// Register natural language grocery command handler
+registerNaturalLanguageGrocery(bot);
 
 // Install error handler (Grammy best practice)
 bot.catch((err) => {

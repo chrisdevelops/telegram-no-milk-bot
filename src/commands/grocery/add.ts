@@ -17,7 +17,7 @@ export async function handleAdd(
   if (items.length === 0) {
     await ctx.reply(
       "❌ Please specify items to add.\n\n" +
-      "Example: /grocery add carrots, milk, bread"
+      "Example: grocery add carrots, milk, bread"
     );
     return;
   }

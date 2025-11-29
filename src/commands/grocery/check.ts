@@ -4,10 +4,11 @@ import { checkItems, getItems } from "../../db";
 import { updateListMessage } from "../../lib/render";
 
 /**
- * Handle the /grocery check command
+ * Handle the grocery check command
+ * Toggles the checked state of items (checked → unchecked, unchecked → checked)
  * @param ctx - The Grammy context object
  * @param state - The grocery list state
- * @param items - Array of item names to mark as checked
+ * @param items - Array of item names to toggle
  */
 export async function handleCheck(
   ctx: BotContext,
@@ -16,8 +17,9 @@ export async function handleCheck(
 ): Promise<void> {
   if (items.length === 0) {
     await ctx.reply(
-      "❌ Please specify items to check off.\n\n" +
-      "Example: /grocery check carrots, milk"
+      "❌ Please specify items to toggle.\n\n" +
+      "Example: grocery check carrots, milk\n" +
+      "Tip: Check again to uncheck!"
     );
     return;
   }
