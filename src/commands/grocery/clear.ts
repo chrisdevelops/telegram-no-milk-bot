@@ -1,6 +1,6 @@
 // src/commands/grocery/clear.ts
 import { BotContext, GroceryListState } from "../../lib/types";
-import { clearItems, getItems } from "../../db";
+import { clearItems, getItems, setSortPreferences } from "../../db";
 import { updateListMessage } from "../../lib/render";
 
 /**
@@ -13,6 +13,12 @@ export async function handleClear(
   state: GroceryListState
 ): Promise<void> {
   clearItems(state.chatId);
+
+  // Reset to default sort mode
+  setSortPreferences(state.chatId, 'date', 'asc');
+  state.sortMode = 'date';
+  state.sortDirection = 'asc';
+
   state.items = getItems(state.chatId); // Should now be empty
 
   await updateListMessage(ctx, state);

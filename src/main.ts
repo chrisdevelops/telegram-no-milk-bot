@@ -8,6 +8,17 @@ import { BotContext } from "./lib/types";
 // Load environment variables
 dotenv.config();
 
+// Track bot start time for uptime calculation
+const botStartTime = Date.now();
+
+/**
+ * Get bot uptime in milliseconds
+ * @returns Milliseconds since bot started
+ */
+export function getBotUptime(): number {
+  return Date.now() - botStartTime;
+}
+
 // Initialize database
 try {
   initDb();
@@ -32,14 +43,13 @@ const bot = new Bot<BotContext>(token);
 bot.command("start", async (ctx) => {
   await ctx.reply(
     "🛒 Grocery List Bot\n\n" +
-    "Just chat naturally! Use these patterns:\n\n" +
-    "  grocery show — display list\n" +
-    "  grocery add carrots, milk, bread\n" +
-    "  grocery remove carrots, milk\n" +
-    "  grocery check carrots, milk (toggles ✅/◻️)\n" +
-    "  grocery copy — get text to copy\n" +
-    "  grocery clear\n\n" +
-    "Shortcuts: + (add), - (remove), x (check)\n" +
+    "Just chat naturally with your grocery list!\n\n" +
+    "Quick examples:\n" +
+    "  grocery add apples, milk, bread\n" +
+    "  grocery check milk\n" +
+    "  grocery remove apples\n" +
+    "  grocery show\n\n" +
+    "Type 'grocery help' for all commands.\n\n" +
     "Tip: Separate items with commas\n" +
     "All list members can collaborate!"
   );
@@ -82,7 +92,7 @@ process.once("SIGINT", () => shutdown("SIGINT"));
 process.once("SIGTERM", () => shutdown("SIGTERM"));
 
 // Start the bot
-console.log("🚀 Grocery List bot is starting...");
+console.log("🚀 No Milk Bot is starting...");
 bot.start()
   .then(() => {
     console.log("✅ Bot is running and listening for updates");

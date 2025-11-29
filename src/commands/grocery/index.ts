@@ -1,13 +1,16 @@
 // src/commands/grocery/index.ts
 import { Bot } from "grammy";
 import { getChatRecord, getItems } from "../../db";
-import { BotContext, GroceryListState } from "../../lib/types";
+import { BotContext, GroceryListState, ItemWithPosition } from "../../lib/types";
 import { handleShow } from "./show";
 import { handleAdd } from "./add";
 import { handleRemove } from "./remove";
 import { handleCheck } from "./check";
 import { handleClear } from "./clear";
 import { handleCopy } from "./copy";
+import { handleSort } from "./sort";
+import { handleDebug } from "./debug";
+import { handleHelp } from "./help";
 
 /**
  * Parse comma-separated items from text input
@@ -29,6 +32,53 @@ export function parseItems(text: string): string[] {
 }
 
 /**
+ * Parse comma-separated items with optional @position syntax
+ * Supports flexible spacing: "item@3", "item @ 3", "item @3"
+ * @param text - The text containing items (e.g., "pears@3, milk, apples @2")
+ * @returns Array of items with optional positions
+ */
+export function parseItemsWithPosition(text: string): ItemWithPosition[] {
+  const MAX_ITEM_LENGTH = 200;
+
+  if (!text || text.trim().length === 0) {
+    return [];
+  }
+
+  const items: ItemWithPosition[] = [];
+  const parts = text.split(',');
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+
+    // Match: "itemName @position" or "itemName@position" or "itemName @ position"
+    // Flexible spacing around @ symbol
+    const match = trimmed.match(/^(.+?)\s*@\s*(\d+)$/);
+
+    if (match) {
+      const name = match[1].trim();
+      const position = parseInt(match[2], 10);
+
+      if (name.length > 0 && name.length <= MAX_ITEM_LENGTH) {
+        items.push({
+          name: name.substring(0, MAX_ITEM_LENGTH),
+          position
+        });
+      }
+    } else {
+      // No position specified - will append to end
+      if (trimmed.length > 0 && trimmed.length <= MAX_ITEM_LENGTH) {
+        items.push({
+          name: trimmed.substring(0, MAX_ITEM_LENGTH),
+          position: null
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
+/**
  * Parse natural language command from text
  * Extracts command verb and items text from messages containing "grocery" or "groceries"
  * @param text - The full message text
@@ -38,7 +88,7 @@ export function parseNaturalLanguageCommand(text: string): {
   command: string;
   itemsText: string;
 } {
-  const pattern = /\b(?:grocery|groceries)\b\s*(?:(add|create|\+|remove|rm|-|check|mark|x|clear|reset|show|list|copy))?\s*(.*)/i;
+  const pattern = /\b(?:grocery|groceries)\b\s*(?:(add|create|\+|remove|rm|-|check|mark|x|clear|reset|show|list|copy|sort|debug|help))?\s*(.*)/i;
   const match = text.match(pattern);
 
   if (!match) {
@@ -73,7 +123,7 @@ export function normalizeCommand(cmd: string): string {
 /**
  * Create a grocery list state object for a chat
  * @param chatId - The Telegram chat ID
- * @returns GroceryListState with current items and last message ID
+ * @returns GroceryListState with current items, last message ID, and sort preferences
  */
 export function makeState(chatId: number): GroceryListState {
   const chat = getChatRecord(chatId);
@@ -82,6 +132,8 @@ export function makeState(chatId: number): GroceryListState {
     chatId,
     items,
     lastMessageId: chat.lastMessageId,
+    sortMode: chat.sortMode,
+    sortDirection: chat.sortDirection,
   };
 }
 
@@ -91,9 +143,13 @@ export function makeState(chatId: number): GroceryListState {
  * @param bot - The Grammy bot instance
  */
 export function registerNaturalLanguageGrocery(bot: Bot<BotContext>): void {
+  // Read feature flag from environment
+  const shouldDeleteCommandMessages = process.env.DELETE_COMMAND_MESSAGES === 'true';
+
   bot.hears(/\b(?:grocery|groceries)\b/i, async (ctx) => {
     const chatId = ctx.chat?.id;
     const text = ctx.message?.text ?? "";
+    const messageId = ctx.message?.message_id;
 
     if (!chatId) {
       console.error("No chat ID available in context");
@@ -102,10 +158,9 @@ export function registerNaturalLanguageGrocery(bot: Bot<BotContext>): void {
 
     try {
       const { command, itemsText } = parseNaturalLanguageCommand(text);
-      const items = parseItems(itemsText);
       const state = makeState(chatId);
 
-      console.log(`[DEBUG] Natural language command: "${command}", Items text: "${itemsText}", Parsed items:`, items);
+      console.log(`[DEBUG] Natural language command: "${command}", Items text: "${itemsText}"`);
 
       // If no valid command was found, silently ignore (allows normal conversation)
       if (!command) {
@@ -116,31 +171,67 @@ export function registerNaturalLanguageGrocery(bot: Bot<BotContext>): void {
       // Normalize command aliases (create → add, rm → remove, etc.)
       const normalizedCommand = normalizeCommand(command);
 
+      // Track if command was successfully executed
+      let commandExecuted = false;
+
       switch (normalizedCommand) {
         case "add":
-          await handleAdd(ctx, state, items);
+          // Use position-aware parsing for add command
+          const itemsWithPos = parseItemsWithPosition(itemsText);
+          console.log(`[DEBUG] Parsed items with positions:`, itemsWithPos);
+          await handleAdd(ctx, state, itemsWithPos);
+          commandExecuted = true;
           break;
         case "remove":
-          await handleRemove(ctx, state, items);
+          const removeItems = parseItems(itemsText);
+          await handleRemove(ctx, state, removeItems);
+          commandExecuted = true;
           break;
         case "check":
-          await handleCheck(ctx, state, items);
+          const checkItems = parseItems(itemsText);
+          await handleCheck(ctx, state, checkItems);
+          commandExecuted = true;
           break;
         case "clear":
           await handleClear(ctx, state);
+          commandExecuted = true;
           break;
         case "show":
           await handleShow(ctx, state);
+          commandExecuted = true;
           break;
         case "copy":
           await handleCopy(ctx, state);
+          commandExecuted = true;
+          break;
+        case "sort":
+          await handleSort(ctx, state, itemsText);
+          commandExecuted = true;
+          break;
+        case "debug":
+          await handleDebug(ctx, state);
+          commandExecuted = true;
+          break;
+        case "help":
+          await handleHelp(ctx, state);
+          commandExecuted = true;
           break;
         default:
           // Unknown command after normalization - show help
           await ctx.reply(
-            "❓ Unknown command. Try:\n" +
-            "grocery show, add, remove, check, copy, or clear"
+            "❓ Unknown command. Try 'grocery help' for a list of commands."
           );
+      }
+
+      // Delete the user's command message if feature is enabled and command was executed
+      if (shouldDeleteCommandMessages && commandExecuted && messageId) {
+        try {
+          await ctx.deleteMessage();
+          console.log(`[DEBUG] Deleted command message ${messageId} from chat ${chatId}`);
+        } catch (error) {
+          // Silently fail - bot might not have delete permissions or message might be too old
+          console.warn(`[WARN] Could not delete command message ${messageId}:`, error);
+        }
       }
     } catch (error) {
       console.error(`Error handling grocery command in chat ${chatId}:`, error);
