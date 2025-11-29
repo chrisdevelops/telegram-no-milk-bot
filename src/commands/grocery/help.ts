@@ -11,7 +11,7 @@ export async function handleHelp(
   const helpText = `🛒 *Grocery List Bot Commands*
 
 *Basic Commands:*
-\`grocery show\` — Display the current grocery list
+\`grocery list\` — Display the current grocery list
 \`grocery add <items>\` — Add comma-separated items
 \`grocery remove <items>\` — Remove comma-separated items
 \`grocery check <items>\` — Toggle checked status (✅/◻️)

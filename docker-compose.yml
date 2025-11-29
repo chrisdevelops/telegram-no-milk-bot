@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  grocery-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram-grocery-bot
+    restart: unless-stopped
+
+    environment:
+      # Set your bot token here or use .env file
+      - BOT_TOKEN=${BOT_TOKEN}
+      - DB_PATH=/app/data/grocery.db
+      - NODE_ENV=production
+
+    volumes:
+      # Persist database
+      - ./data:/app/data
+
+    # Optional: if you need to expose ports for health checks
+    # ports:
+    #   - "3000:3000"
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
