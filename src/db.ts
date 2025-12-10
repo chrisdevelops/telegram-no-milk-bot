@@ -108,6 +108,32 @@ export function initDb(): void {
       }
     }
 
+    // Create history table for command tracking
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        username TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        command TEXT NOT NULL,
+        items TEXT NOT NULL,
+        timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+      );
+    `);
+
+    // Create index for efficient pagination queries
+    try {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_history_chat_timestamp
+        ON history(chat_id, timestamp DESC);
+      `);
+      console.log("Created index on history table");
+    } catch (error) {
+      // Index might already exist
+    }
+
     console.log(`Database initialized at ${dbPath}`);
   } catch (error) {
     console.error("Failed to initialize database:", error);
@@ -503,5 +529,153 @@ export function getItemsWithDebugInfo(chatId: number): Array<{
   } catch (error) {
     console.error(`Failed to get debug info for chat ${chatId}:`, error);
     throw new Error(`Database error: Could not retrieve debug information`);
+  }
+}
+
+/**
+ * History entry data structure
+ */
+export interface HistoryEntry {
+  id?: number;
+  chatId: number;
+  userId: number;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  command: string;
+  items: string;
+  timestamp?: number;
+}
+
+/**
+ * Add a new history entry with FIFO deletion if max is reached
+ * @param entry - History entry data
+ * @throws Error if database operation fails
+ */
+export function addHistoryEntry(entry: Omit<HistoryEntry, 'id' | 'timestamp'>): void {
+  try {
+    const { getHistoryConfig } = require('./lib/config');
+    const config = getHistoryConfig();
+
+    // Check if we need to delete old entries (FIFO)
+    if (config.maxEntries > 0) {
+      const countRow = db
+        .prepare('SELECT COUNT(*) as count FROM history WHERE chat_id = ?')
+        .get(entry.chatId) as { count: number } | undefined;
+
+      const count = countRow?.count ?? 0;
+
+      if (count >= config.maxEntries) {
+        // Delete oldest entries to make room
+        const toDelete = count - config.maxEntries + 1;
+        db.prepare(`
+          DELETE FROM history
+          WHERE chat_id = ?
+          AND id IN (
+            SELECT id FROM history
+            WHERE chat_id = ?
+            ORDER BY timestamp ASC
+            LIMIT ?
+          )
+        `).run(entry.chatId, entry.chatId, toDelete);
+
+        console.log(`[HISTORY] Deleted ${toDelete} old entries for chat ${entry.chatId}`);
+      }
+    }
+
+    // Insert new entry
+    db.prepare(`
+      INSERT INTO history (chat_id, user_id, username, first_name, last_name, command, items, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+    `).run(
+      entry.chatId,
+      entry.userId,
+      entry.username,
+      entry.firstName,
+      entry.lastName,
+      entry.command,
+      entry.items
+    );
+  } catch (error) {
+    console.error(`Failed to add history entry for chat ${entry.chatId}:`, error);
+    throw new Error(`Database error: Could not add history entry`);
+  }
+}
+
+/**
+ * Get paginated history for a chat
+ * @param chatId - The Telegram chat ID
+ * @param page - Page number (1-indexed)
+ * @param perPage - Entries per page (default: 10)
+ * @returns Object with entries array and pagination info
+ * @throws Error if database operation fails
+ */
+export function getHistoryPage(
+  chatId: number,
+  page: number = 1,
+  perPage: number = 10
+): {
+  entries: HistoryEntry[];
+  totalEntries: number;
+  totalPages: number;
+  currentPage: number;
+} {
+  try {
+    // Get total count
+    const countRow = db
+      .prepare('SELECT COUNT(*) as count FROM history WHERE chat_id = ?')
+      .get(chatId) as { count: number } | undefined;
+
+    const totalEntries = countRow?.count ?? 0;
+    const totalPages = Math.ceil(totalEntries / perPage) || 1;
+
+    // Clamp page to valid range
+    const currentPage = Math.max(1, Math.min(page, totalPages));
+
+    // Calculate offset
+    const offset = (currentPage - 1) * perPage;
+
+    // Fetch entries (most recent first)
+    const rows = db
+      .prepare(`
+        SELECT id, chat_id, user_id, username, first_name, last_name, command, items, timestamp
+        FROM history
+        WHERE chat_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(chatId, perPage, offset) as Array<{
+        id: number;
+        chat_id: number;
+        user_id: number;
+        username: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        command: string;
+        items: string;
+        timestamp: number;
+      }>;
+
+    const entries: HistoryEntry[] = rows.map(row => ({
+      id: row.id,
+      chatId: row.chat_id,
+      userId: row.user_id,
+      username: row.username,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      command: row.command,
+      items: row.items,
+      timestamp: row.timestamp,
+    }));
+
+    return {
+      entries,
+      totalEntries,
+      totalPages,
+      currentPage,
+    };
+  } catch (error) {
+    console.error(`Failed to get history for chat ${chatId}:`, error);
+    throw new Error(`Database error: Could not retrieve history`);
   }
 }

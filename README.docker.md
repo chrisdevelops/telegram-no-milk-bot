@@ -91,7 +91,8 @@ The database is stored in a Docker volume mounted at `/app/data` inside the cont
 
 - `BOT_TOKEN` (required): Your Telegram bot token
 - `DB_PATH` (optional): Database file path (default: `/app/data/grocery.db`)
-- `DELETE_COMMAND_MESSAGES` (optional): Set to `true` to delete command messages
+- `DELETE_COMMAND_MESSAGES` (optional): Set to `true` to delete command messages after execution
+- `RENDER_LIST_AFTER_CHANGES` (optional): Set to `false` to disable auto-rendering the list after add/remove/check commands (default: `true`). When disabled, use `grocery show` to manually display the updated list.
 - `NODE_ENV` (optional): Set to `production` for production deployment
 
 ## Resource Limits

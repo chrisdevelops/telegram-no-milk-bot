@@ -11,6 +11,7 @@ import { handleCopy } from "./copy";
 import { handleSort } from "./sort";
 import { handleDebug } from "./debug";
 import { handleHelp } from "./help";
+import { handleHistory } from "./history";
 
 /**
  * Parse comma-separated items from text input
@@ -88,7 +89,7 @@ export function parseNaturalLanguageCommand(text: string): {
   command: string;
   itemsText: string;
 } {
-  const pattern = /\b(?:grocery|groceries)\b\s*(?:(add|create|\+|remove|rm|-|check|mark|x|clear|reset|show|list|copy|sort|debug|help))?\s*(.*)/i;
+  const pattern = /\b(?:grocery|groceries)\b\s*(?:(add|create|\+|remove|rm|-|check|mark|x|clear|reset|show|list|copy|sort|debug|help|history))?\s*(.*)/i;
   const match = text.match(pattern);
 
   if (!match) {
@@ -214,6 +215,10 @@ export function registerNaturalLanguageGrocery(bot: Bot<BotContext>): void {
           break;
         case "help":
           await handleHelp(ctx, state);
+          commandExecuted = true;
+          break;
+        case "history":
+          await handleHistory(ctx, itemsText);
           commandExecuted = true;
           break;
         default:

@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { initDb, closeDb } from "./db";
 import { registerNaturalLanguageGrocery } from "./commands/grocery";
 import { BotContext } from "./lib/types";
+import { historyTrackingMiddleware } from "./middleware/history";
 
 // Load environment variables
 dotenv.config();
@@ -54,6 +55,9 @@ bot.command("start", async (ctx) => {
     "All list members can collaborate!"
   );
 });
+
+// Install history tracking middleware (must run before command handlers)
+bot.use(historyTrackingMiddleware);
 
 // Register natural language grocery command handler
 registerNaturalLanguageGrocery(bot);

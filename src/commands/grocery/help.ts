@@ -35,6 +35,7 @@ export async function handleHelp(
 
 *Other:*
 \`grocery help\` — Show this help message
+\`grocery history [page]\` — View command history (10 per page)
 \`grocery debug\` — Show diagnostic information
 
 *Examples:*

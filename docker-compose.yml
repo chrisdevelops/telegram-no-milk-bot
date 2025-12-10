@@ -13,6 +13,12 @@ services:
       - BOT_TOKEN=${BOT_TOKEN}
       - DB_PATH=/app/data/grocery.db
       - NODE_ENV=production
+      # Optional: Disable auto-rendering list after changes
+      # - RENDER_LIST_AFTER_CHANGES=false
+      # Optional: History tracking configuration
+      # - HISTORY_ENABLED=true
+      # - HISTORY_MAX_ENTRIES=100
+      # - HISTORY_USER_FORMAT=both
 
     volumes:
       # Persist database

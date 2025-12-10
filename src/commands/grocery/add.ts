@@ -38,5 +38,9 @@ export async function handleAdd(
   addItemsWithPosition(state.chatId, items);
   state.items = getItems(state.chatId);
 
-  await updateListMessage(ctx, state);
+  // Only update list message if feature flag is enabled (default: true)
+  const shouldRenderAfterChanges = process.env.RENDER_LIST_AFTER_CHANGES !== 'false';
+  if (shouldRenderAfterChanges) {
+    await updateListMessage(ctx, state);
+  }
 }
